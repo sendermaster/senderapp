@@ -10,6 +10,7 @@
 // riesgo de restricción del número conectado.
 // ═══════════════════════════════════════════════════════════════
 import express from 'express';
+import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { WebSocket } from 'ws';
 import makeWASocket, {
@@ -25,6 +26,7 @@ import QRCode from 'qrcode';
 
 const logger = pino({ level: 'info' });
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
