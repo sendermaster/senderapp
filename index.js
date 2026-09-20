@@ -11,6 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { WebSocket } from 'ws';
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
@@ -34,7 +35,9 @@ const PORT = process.env.PORT || 3000;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY.startsWith('REEMPLAZAR')) {
   logger.error('Falta configurar SUPABASE_SERVICE_ROLE_KEY en las variables de entorno de Railway.');
 }
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  realtime: { transport: WebSocket },
+});
 
 // Sesiones activas en memoria: owner_id -> { sock, status, qr }
 const sessions = new Map();
