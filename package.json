@@ -12,7 +12,8 @@
     "@supabase/supabase-js": "^2.45.0",
     "express": "^4.19.2",
     "qrcode": "^1.5.4",
-    "pino": "^9.3.2"
+    "pino": "^9.3.2",
+    "ws": "^8.18.0"
   },
   "engines": {
     "node": ">=20"
