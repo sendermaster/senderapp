@@ -128,7 +128,21 @@ async function logMessage(ownerId, contactId, direction, text) {
   if (!contactId) return;
   await supabase.from('messages').insert({ owner_id: ownerId, contact_id: contactId, direction, text });
 }
-
+async function syncGroups(ownerId, sock) {
+  const groups = await sock.groupFetchAllParticipating();
+  const rows = Object.values(groups).map((g) => ({
+    owner_id: ownerId,
+    group_jid: g.id,
+    name: g.subject || 'Grupo sin nombre',
+    participants_count: (g.participants || []).length,
+    updated_at: new Date().toISOString(),
+  }));
+  if (rows.length) {
+    await supabase.from('whatsapp_groups').upsert(rows, { onConflict: 'owner_id,group_jid' });
+  }
+  logger.info(`[${ownerId}] ${rows.length} grupo(s) sincronizados`);
+  return rows.length;
+}
 // ─────────────────────────────────────────────────────────────
 // Arranca (o retoma) la sesión de WhatsApp de un usuario
 // ─────────────────────────────────────────────────────────────
@@ -171,11 +185,12 @@ async function startSession(ownerId) {
       logger.info(`[${ownerId}] QR generado — esperando escaneo`);
     }
 
-    if (connection === 'open') {
+     if (connection === 'open') {
       const phone = sock.user?.id?.split(':')[0] || null;
       sessions.set(ownerId, { ...entry, status: 'connected', qr: null });
       await updateSessionRow(ownerId, { status: 'connected', qr_data: null, phone, last_seen: new Date().toISOString() });
       logger.info(`[${ownerId}] Conectado como ${phone}`);
+      syncGroups(ownerId, sock).catch((e) => logger.error(e));
     }
 
     if (connection === 'close') {
@@ -272,7 +287,17 @@ app.post('/send', async (req, res) => {
 app.listen(PORT, () => {
   logger.info(`SENDER Coexistencia escuchando en puerto ${PORT}`);
 });
-
+app.post('/groups/sync', async (req, res) => {
+  const { owner_id } = req.body;
+  const entry = sessions.get(owner_id);
+  if (!entry || entry.status !== 'connected') return res.status(409).json({ error: 'WhatsApp no está conectado ahora mismo' });
+  try {
+    const count = await syncGroups(owner_id, entry.sock);
+    res.json({ ok: true, count });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
 // Al arrancar, retoma automáticamente las sesiones que estaban conectadas
 // antes del último reinicio/redeploy, sin que el usuario tenga que hacer nada.
 (async () => {
